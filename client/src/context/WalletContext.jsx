@@ -68,7 +68,6 @@ export function WalletProvider({ children }) {
       await logout();
       await login(signer, address); // trigger login on new connection
     } catch(err) {
-      console.log(err, err.message)
       showToast("Failed to connect account.", 'error');
     }
   };
@@ -111,7 +110,6 @@ export function WalletProvider({ children }) {
           }
 
           if(!isLoggedIn) {
-            console.log("Logging in with wallet", addr);
             await login(signer, addr);
           }
         }

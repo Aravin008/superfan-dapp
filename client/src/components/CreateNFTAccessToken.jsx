@@ -19,7 +19,7 @@ export default function CreateNFTAccessTokens({ isOpen, onClose, event, onSucces
     try {
       e.preventDefault();
       console.log("Form Submit");
-      console.log(nftName, nftPriceETH, nftPriceFAN, nftDesc, nftImage);
+      // console.log(nftName, nftPriceETH, nftPriceFAN, nftDesc, nftImage);
       // First upload image and get back url of json for nft
       const formData = new FormData();
       formData.append("image", nftImage); // your image file

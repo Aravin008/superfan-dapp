@@ -81,7 +81,6 @@ export default function MessagesList({ refreshTrigger, pagination, maxMessages, 
   
     const resp = await getMessage(msg.msgId);
     // const resp = await getMessageWithReply(msg.msgId);
-    console.log("got response", resp);
     if (resp?.data?.msgId) {
       updateMessage(resp?.data);
     }
@@ -90,7 +89,6 @@ export default function MessagesList({ refreshTrigger, pagination, maxMessages, 
   useEffect(() => {
     if(noListener) return;
     if(!currentAccount || !contract) return;
-    console.log("Register the OnNewMessage");
     contract.on(contract.filters.NewMessage(currentAccount, null), listener);
     // Messages sent TO me
     contract.on(contract.filters.NewMessage(null, currentAccount), listener);

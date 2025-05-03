@@ -19,7 +19,6 @@ export function AuthProvider({ children }) {
   const initUser = async () => {
     try {
       const profile = await getMe();
-      console.log("Profile response", profile);
       if (profile?.accountId) {
         setUserProfile(profile);
         setIsLoggedIn(true);
