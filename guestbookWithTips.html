@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Guestbook with Tips</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+  <h2>Guestbook</h2>
+
+  <button onclick="registerAsCreator()">Register as Creator</button>
+
+  <h3>Send a Message</h3>
+  <select id="creatorSelect"></select><br><br>
+  <textarea id="messageInput" placeholder="Your message"></textarea><br>
+  <input type="number" id="tipInput" placeholder="Tip in ETH" /><br>
+  <button onclick="sendMessage()">Send Message</button>
+
+  <h3>Messages</h3>
+  <div id="messages"></div>
+
+  <script type="module">
+    import { ethers } from "https://esm.sh/ethers@6.13.5";
+
+    const contractAddress = 'CONTRACT_ADDRESS_GUESTBOOK';
+    const contractABI = [
+      {
+        "anonymous": false,
+        "inputs": [{ "indexed": true, "internalType": "address", "name": "creator", "type": "address" }],
+        "name": "NewCreator",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+          { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+          { "indexed": false, "internalType": "string", "name": "text", "type": "string" },
+          { "indexed": false, "internalType": "uint256", "name": "tipAmount", "type": "uint256" }
+        ],
+        "name": "NewMessage",
+        "type": "event"
+      },
+      {
+        "inputs": [{ "internalType": "address[]", "name": "addrs", "type": "address[]" }],
+        "name": "getCreators",
+        "outputs": [{ "internalType": "address[]", "name": "", "type": "address[]" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getMessages",
+        "outputs": [{
+          "components": [
+            { "internalType": "address", "name": "sender", "type": "address" },
+            { "internalType": "address", "name": "recipient", "type": "address" },
+            { "internalType": "string", "name": "text", "type": "string" },
+            { "internalType": "uint256", "name": "tipAmount", "type": "uint256" }
+          ],
+          "internalType": "struct GuestbookWithTips.Message[]",
+          "name": "",
+          "type": "tuple[]"
+        }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+        "name": "isCreator",
+        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "name": "messages",
+        "outputs": [
+          { "internalType": "address", "name": "sender", "type": "address" },
+          { "internalType": "address", "name": "recipient", "type": "address" },
+          { "internalType": "string", "name": "text", "type": "string" },
+          { "internalType": "uint256", "name": "tipAmount", "type": "uint256" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "registerAsCreator",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "address", "name": "to", "type": "address" },
+          { "internalType": "string", "name": "text", "type": "string" }
+        ],
+        "name": "sendMessage",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      }
+    ];
+
+    let provider, signer, contract, readOnlyContract;
+
+    async function init() {
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      signer = await provider.getSigner();
+      contract = new ethers.Contract(contractAddress, contractABI, signer);
+      readOnlyContract = contract.connect(provider); // for view calls
+
+      await loadCreators();
+      await loadMessages();
+    }
+
+    async function registerAsCreator() {
+      const tx = await contract.registerAsCreator();
+      await tx.wait();
+      alert('You are now a creator!');
+      await loadCreators();
+    }
+
+    async function loadCreators() {
+      const accounts = await provider.listAccounts();
+      const addresses = accounts.map(a => a.address ?? a); // normalize
+      const creators = await readOnlyContract.getCreators(addresses);
+
+      const select = document.getElementById('creatorSelect');
+      select.innerHTML = '';
+
+      if (creators.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'No creators found';
+        option.disabled = true;
+        select.appendChild(option);
+        return;
+      }
+
+      creators.forEach(addr => {
+        const option = document.createElement('option');
+        option.value = addr;
+        option.textContent = addr;
+        select.appendChild(option);
+      });
+    }
+
+    async function sendMessage() {
+      const creator = document.getElementById('creatorSelect').value;
+      const message = document.getElementById('messageInput').value;
+      const tipETH = document.getElementById('tipInput').value || '0';
+
+      try {
+        const tip = ethers.parseEther(tipETH);
+        const tx = await contract.sendMessage(creator, message, { value: tip });
+        await tx.wait();
+        alert('Message sent!');
+        document.getElementById('messageInput').value = '';
+        document.getElementById('tipInput').value = '';
+        await loadMessages();
+      } catch (err) {
+        console.error('Send message error:', err);
+        alert('Failed to send message: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    async function loadMessages() {
+      const messages = await readOnlyContract.getMessages();
+      const div = document.getElementById('messages');
+      div.innerHTML = '';
+
+      if (messages.length === 0) {
+        div.textContent = 'No messages yet.';
+        return;
+      }
+
+      messages.forEach(m => {
+        const line = document.createElement('p');
+        line.textContent = `From ${m.sender} to ${m.recipient}: "${m.text}" (Tip: ${ethers.formatEther(m.tipAmount)} ETH)`;
+        div.appendChild(line);
+      });
+    }
+
+    init();
+
+    window.registerAsCreator = registerAsCreator;
+    window.sendMessage = sendMessage;
+  </script>
+</body>
+</html>

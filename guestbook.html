@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guestbook DApp</title>
+  </head>
+  <body>
+    <h1>Guestbook DApp</h1>
+
+    <button id="connect">Connect Wallet</button>
+    <div>
+      <h2>Messages</h2>
+      <ul id="messages-list"></ul>
+    </div>
+
+    <form id="message-form">
+      <input type="text" id="message-input" placeholder="Type your message..." required />
+      <button type="submit">Send</button>
+    </form>
+
+    <script type="module">
+      // import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.esm.min.js";
+      import { ethers } from "https://esm.sh/ethers@6.13.5";
+
+      console.log(ethers);
+      let contract;
+      let signer;
+      let provider;
+
+      const contractAddress = "GUESTBOOK_CONTRACT_ADDRESS"; // Replace with your contract's address
+      const contractABI = [
+    {
+      "inputs": [],
+      "name": "getMessages",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct Guestbook.Message[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "messages",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_text",
+          "type": "string"
+        }
+      ],
+      "name": "sign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ];
+
+      // Connect Wallet
+      const connectButton = document.getElementById("connect");
+      connectButton.addEventListener("click", async () => {
+        if (window.ethereum) {
+          provider = new ethers.BrowserProvider(window.ethereum);
+          await provider.send("eth_requestAccounts", []); // Request accounts from wallet
+          signer = await provider.getSigner();
+          contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+          console.log("Connected to:", await signer.getAddress());
+          fetchMessages(); // Fetch existing messages
+        } else {
+          alert("Please install MetaMask.");
+        }
+      });
+
+      // Fetch Messages from contract
+      async function fetchMessages() {
+        try {
+          const messages = await contract.getMessages();
+          const messagesList = document.getElementById("messages-list");
+          messagesList.innerHTML = "";
+          messages.forEach((msg) => {
+            const li = document.createElement("li");
+            li.textContent = `${msg.sender} said: "${msg.text}" at ${new Date(Number(msg.timestamp) * 1000).toLocaleString()}`;
+            messagesList.appendChild(li);
+          });
+        } catch (error) {
+          console.error("Error fetching messages:", error);
+        }
+      }
+
+      // Send a message to the contract
+      async function sendMessage(message) {
+        try {
+          const tx = await contract.sign(message);
+          await tx.wait(); // Wait for the transaction to be mined
+          fetchMessages(); // Fetch updated messages
+        } catch (error) {
+          console.error("Error sending message:", error);
+        }
+      }
+
+      document.getElementById("message-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = document.getElementById("message-input").value.trim();
+      if (message) {
+        await sendMessage(message);
+        document.getElementById("message-input").value = "";
+      }
+    });
+
+      // Example of sending a message (you can bind this to a form or button)
+      // sendMessage("Hello, world!");
+    </script>
+  </body>
+</html>
